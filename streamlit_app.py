@@ -268,26 +268,39 @@ if "feedback_messages" not in st.session_state:
     st.session_state.feedback_messages = []
 
 # Show feedback input **only if result_parsed is written**
-if st.session_state.result_parsed and st.session_state.feedback_iteration < 5:
-    user_input = st.text_input(f"Iteration {st.session_state.feedback_iteration + 1}/5: Enter feedback (or 'Done' to exit):", key=f"feedback_input_{st.session_state.feedback_iteration}")
-    st.write("Give me a minute to grab information...")
+if st.session_state.result_parsed:
+    # Display all assistant responses so far
+    for message in st.session_state.feedback_messages:
+        with st.chat_message("assistant"):
+            st.markdown(message["content"])
 
-    if user_input:
-        if user_input.strip().lower() == "done":
-            st.session_state.feedback_iteration = 5  # End feedback process
+    # If feedback iteration is less than 5, allow user input for feedback
+    if st.session_state.feedback_iteration < 5:
+        user_input = st.text_input(
+            f"Enter feedback (or 'Done' to exit): ",
+            key=f"feedback_input_{st.session_state.feedback_iteration+3}"
+        )
+
+        if user_input:
+            if user_input.strip().lower() == "done":
+                st.session_state.feedback_iteration = 5  # End feedback process
+            else:
+                # Process feedback without rerunning the app
+                st.write("Give me a minute to think...")
+                result_feedback = feedback(st.session_state.company_name, topic_summary, st.session_state.result_parsed, user_input)
+
+                # Store assistant’s response in session state
+                st.session_state.feedback_messages.append({"role": "assistant", "content": result_feedback.content})
+
+                # Increment feedback iteration
+                st.session_state.feedback_iteration += 1
+
+                # Display the assistant's feedback immediately
+                with st.chat_message("assistant"):
+                    st.markdown(result_feedback.content)
+                
         else:
-            st.session_state.feedback_iteration += 1
-            st.session_state.feedback_messages.append({"role": "user", "content": user_input})
-
-            # Process feedback
-            st.write("Give me another minute to think and update the information...")
-            result_feedback = feedback(st.session_state.company_name, topic_summary, st.session_state.result_parsed, user_input)
-            st.session_state.feedback_messages.append({"role": "assistant", "content": result_feedback.content})
-
-# Display all previous feedback messages
-for message in st.session_state.feedback_messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+            st.write("Waiting for your feedback...")
 
 # If max iterations reached, stop input
 if st.session_state.feedback_iteration >= 5:
